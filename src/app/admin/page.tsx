@@ -64,8 +64,8 @@ const SAMPLE_PRODUCT_IMAGES = [
 ];
 
 export default function AdminPage() {
-  const { user, isAdmin, setDemoRole } = useAuth();
-  const { tenant, updateTenant } = useTenantStore();
+  const { user, isAdmin } = useAuth();
+  const { tenant, updateTenant, loadTenant } = useTenantStore();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -103,6 +103,7 @@ export default function AdminPage() {
       const [prods, ords] = await Promise.all([
         productService.getAllProductsForAdmin(tenant.id),
         orderService.getOrders(tenant.id),
+        loadTenant(tenant.id),
       ]);
       setProducts(prods);
       setOrders(ords);
@@ -306,22 +307,21 @@ export default function AdminPage() {
           color="red"
           radius="lg"
         >
-          <Text size="sm" mb="md">
-            Esta sección es exclusiva para administradores de la tienda.
+          <Text size="sm" mb="xs">
+            Esta sección es exclusiva para el administrador de la tienda (<strong>santiago.ojeda.dm@gmail.com</strong>).
           </Text>
-          <Group gap="sm">
-            <Button
-              variant="filled"
-              color="violet"
-              size="xs"
-              onClick={() => setDemoRole('admin')}
-            >
-              Habilitar Modo Administrador (Dev)
-            </Button>
-            <Button component={Link} href="/" variant="subtle" size="xs">
-              Volver a la tienda
-            </Button>
-          </Group>
+          {user ? (
+            <Text size="xs" c="dimmed" mb="md">
+              Actualmente has iniciado sesión como: {user.email} (Rol: Cliente)
+            </Text>
+          ) : (
+            <Text size="xs" c="dimmed" mb="md">
+              Inicia sesión con la cuenta de administrador para acceder a este panel.
+            </Text>
+          )}
+          <Button component={Link} href="/" variant="subtle" size="xs">
+            Volver a la tienda
+          </Button>
         </Alert>
       </Container>
     );

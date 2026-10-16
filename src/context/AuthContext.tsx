@@ -14,6 +14,13 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
+export const ADMIN_EMAIL = 'santiago.ojeda.dm@gmail.com';
+
+export const isUserAdmin = (email?: string | null): boolean => {
+  if (!email) return false;
+  return email.toLowerCase().trim() === ADMIN_EMAIL.toLowerCase().trim();
+};
+
 interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
@@ -22,7 +29,6 @@ interface AuthContextType {
   registerWithEmail: (email: string, pass: string, name: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  setDemoRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -33,38 +39,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check demo user or Firebase Auth
+  // Check Firebase Auth or restore saved user
   useEffect(() => {
     if (isFirebaseConfigured && auth) {
       const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
         if (fbUser) {
-          // 1. Immediately establish the authenticated user so the UI updates without delay
+          const isCurrentAdmin = isUserAdmin(fbUser.email);
           const currentUser: UserProfile = {
             uid: fbUser.uid,
             email: fbUser.email,
             displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
             photoURL: fbUser.photoURL,
-            role: 'customer',
+            role: isCurrentAdmin ? 'admin' : 'customer',
           };
           setUser(currentUser);
           setLoading(false);
 
-          // 2. Safely query Firestore role in the background with timeout (never blocking UI if Firestore DB is not yet created)
+          // Sync user profile in Firestore
           if (db) {
             try {
               const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Firestore timeout')), 2500)
               );
-              const fetchPromise = getDoc(doc(db, 'users', fbUser.uid));
+              const userRef = doc(db, 'users', fbUser.uid);
+              const fetchPromise = getDoc(userRef);
               const userDoc: any = await Promise.race([fetchPromise, timeoutPromise]);
+
               if (userDoc?.exists?.()) {
                 const data = userDoc.data();
+                // Enforce that only ADMIN_EMAIL can have the admin role
+                const finalRole: UserRole = isCurrentAdmin ? 'admin' : 'customer';
                 setUser((prev) =>
-                  prev ? { ...prev, role: data.role || prev.role, displayName: data.displayName || prev.displayName } : null
+                  prev ? { ...prev, role: finalRole, displayName: data.displayName || prev.displayName } : null
                 );
+              } else {
+                // Initial creation of profile in Firestore
+                await setDoc(userRef, {
+                  uid: fbUser.uid,
+                  email: fbUser.email,
+                  displayName: currentUser.displayName,
+                  role: isCurrentAdmin ? 'admin' : 'customer',
+                  createdAt: Date.now(),
+                }, { merge: true });
               }
             } catch (err) {
-              console.warn('Could not read user profile role from Firestore:', err);
+              console.warn('Could not sync user profile role with Firestore:', err);
             }
           }
         } else {
@@ -78,12 +97,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const saved = localStorage.getItem(DEMO_USER_KEY);
         if (saved) {
-          setUser(JSON.parse(saved));
+          const parsed = JSON.parse(saved);
+          setUser({
+            ...parsed,
+            role: isUserAdmin(parsed.email) ? 'admin' : 'customer',
+          });
         } else {
           const defaultCustomer: UserProfile = {
             uid: 'demo-customer-1',
             email: 'cliente@ejemplo.com',
-            displayName: 'Santiago Ojeda',
+            displayName: 'Usuario Demo',
             role: 'customer',
           };
           setUser(defaultCustomer);
@@ -97,23 +120,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginWithEmail = async (email: string, pass: string) => {
+    const isCurrentAdmin = isUserAdmin(email);
     if (isFirebaseConfigured && auth) {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
-      // Immediately set user in state
       setUser({
         uid: cred.user.uid,
         email: cred.user.email,
         displayName: cred.user.displayName || email.split('@')[0],
         photoURL: cred.user.photoURL,
-        role: 'customer',
+        role: isCurrentAdmin ? 'admin' : 'customer',
       });
     } else {
-      const isMockAdmin = email.toLowerCase().includes('admin');
       const mockUser: UserProfile = {
         uid: `user-${Date.now()}`,
         email,
         displayName: email.split('@')[0],
-        role: isMockAdmin ? 'admin' : 'customer',
+        role: isCurrentAdmin ? 'admin' : 'customer',
       };
       setUser(mockUser);
       localStorage.setItem(DEMO_USER_KEY, JSON.stringify(mockUser));
@@ -121,10 +143,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const registerWithEmail = async (email: string, pass: string, name: string) => {
+    const isCurrentAdmin = isUserAdmin(email);
     if (isFirebaseConfigured && auth) {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-      // Set display name in Firebase Auth profile
       try {
         await updateProfile(cred.user, { displayName: name });
       } catch (err) {
@@ -135,27 +157,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: cred.user.uid,
         email: cred.user.email,
         displayName: name,
-        role: 'customer',
+        role: isCurrentAdmin ? 'admin' : 'customer',
       };
 
-      // Set user immediately
       setUser(profile);
 
-      // Write to Firestore asynchronously in background (won't crash auth if Firestore is still initializing)
       if (db) {
         try {
-          const cleanProfile = Object.fromEntries(
-            Object.entries(profile).filter(([_, v]) => v !== undefined)
-          );
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Firestore timeout')), 2500)
-          );
-          await Promise.race([
-            setDoc(doc(db, 'users', cred.user.uid), cleanProfile),
-            timeoutPromise
-          ]);
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            ...profile,
+            createdAt: Date.now(),
+          }, { merge: true });
         } catch (err) {
-          console.warn('Could not write user profile to Firestore (database may be pending creation):', err);
+          console.warn('Could not write user profile to Firestore:', err);
         }
       }
     } else {
@@ -163,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: `user-${Date.now()}`,
         email,
         displayName: name,
-        role: 'customer',
+        role: isCurrentAdmin ? 'admin' : 'customer',
       };
       setUser(mockUser);
       localStorage.setItem(DEMO_USER_KEY, JSON.stringify(mockUser));
@@ -175,19 +189,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
       const cred = await signInWithPopup(auth, provider);
-      setUser({
+      const isCurrentAdmin = isUserAdmin(cred.user.email);
+      const profile: UserProfile = {
         uid: cred.user.uid,
         email: cred.user.email,
         displayName: cred.user.displayName || cred.user.email?.split('@')[0] || 'Usuario',
         photoURL: cred.user.photoURL,
-        role: 'customer',
-      });
+        role: isCurrentAdmin ? 'admin' : 'customer',
+      };
+      setUser(profile);
+
+      if (db) {
+        try {
+          await setDoc(doc(db, 'users', cred.user.uid), {
+            ...profile,
+            updatedAt: Date.now(),
+          }, { merge: true });
+        } catch (err) {
+          console.warn('Could not update Google user profile in Firestore:', err);
+        }
+      }
     } else {
+      const mockAdmin = isUserAdmin('santiago.ojeda.dm@gmail.com');
       const mockUser: UserProfile = {
         uid: `google-${Date.now()}`,
-        email: 'usuario.google@ejemplo.com',
-        displayName: 'Google User',
-        role: 'customer',
+        email: 'santiago.ojeda.dm@gmail.com',
+        displayName: 'Santiago Ojeda',
+        role: mockAdmin ? 'admin' : 'customer',
       };
       setUser(mockUser);
       localStorage.setItem(DEMO_USER_KEY, JSON.stringify(mockUser));
@@ -204,26 +232,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const setDemoRole = (role: UserRole) => {
-    if (!user) return;
-    const updated = { ...user, role };
-    setUser(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DEMO_USER_KEY, JSON.stringify(updated));
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        isAdmin: user?.role === 'admin',
+        isAdmin: isUserAdmin(user?.email),
         loginWithEmail,
         registerWithEmail,
         loginWithGoogle,
         logout,
-        setDemoRole,
       }}
     >
       {children}

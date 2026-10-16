@@ -34,7 +34,7 @@ import { Order } from '@/types';
 import Link from 'next/link';
 
 export default function AccountPage() {
-  const { user, isAdmin, setDemoRole } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { tenant } = useTenantStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,17 +108,6 @@ export default function AccountPage() {
             <Badge color={isAdmin ? 'violet' : 'blue'} size="md" variant="filled">
               {isAdmin ? 'Administrador' : 'Cliente'}
             </Badge>
-
-            <Divider my="sm" style={{ width: '100%' }} />
-
-            <Button
-              variant="default"
-              size="xs"
-              fullWidth
-              onClick={() => setDemoRole(isAdmin ? 'customer' : 'admin')}
-            >
-              Cambiar rol a {isAdmin ? 'Cliente' : 'Admin'}
-            </Button>
           </Stack>
         </Paper>
 

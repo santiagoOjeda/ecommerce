@@ -29,6 +29,7 @@ import {
 } from '@tabler/icons-react';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductDetailModal } from '@/components/products/ProductDetailModal';
+import { HeroSlider } from '@/components/home/HeroSlider';
 import { useTenantStore } from '@/store/tenantStore';
 import { productService } from '@/services/productService';
 import { Product } from '@/types';
@@ -126,21 +127,13 @@ export default function HomePage() {
               </Group>
             </Box>
 
-            {/* Banner card preview */}
-            <Card
-              radius="lg"
-              p={0}
-              withBorder
-              visibleFrom="sm"
-              style={{ overflow: 'hidden', maxHeight: 280 }}
-            >
-              <Image
-                src={tenant.bannerUrl || 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&auto=format&fit=crop&q=80'}
-                alt="Banner"
-                height={280}
-                fit="cover"
+            {/* Animated Banner Slider */}
+            <Box>
+              <HeroSlider
+                customBannerUrl={tenant.bannerUrl}
+                tenantName={tenant.name}
               />
-            </Card>
+            </Box>
           </SimpleGrid>
         </Container>
       </Box>

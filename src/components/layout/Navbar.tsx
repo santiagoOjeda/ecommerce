@@ -1,32 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Group,
-  Button,
-  Text,
-  Badge,
-  ActionIcon,
-  Avatar,
-  Menu,
   Container,
-  Box,
-  rem,
-  Tooltip,
-  useMantineColorScheme,
-  Image,
+  Group,
+  Text,
+  ActionIcon,
+  Button,
   Indicator,
+  Box,
+  Image,
+  useMantineColorScheme,
+  Menu,
+  Avatar,
+  Badge,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconShoppingCart,
   IconSun,
   IconMoon,
   IconUser,
-  IconSettings,
-  IconReceipt,
+  IconBuildingStore,
   IconLogout,
   IconShieldLock,
-  IconBuildingStore,
+  IconReceipt,
 } from '@tabler/icons-react';
 import { useCartStore } from '@/store/cartStore';
 import { useTenantStore } from '@/store/tenantStore';
@@ -37,9 +35,15 @@ import { AuthModal } from '../auth/AuthModal';
 export function Navbar() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
   const { toggleCart, getTotalItems } = useCartStore();
-  const { tenant } = useTenantStore();
-  const { user, isAdmin, logout, setDemoRole } = useAuth();
+  const { tenant, loadTenant } = useTenantStore();
+  const { user, isAdmin, logout } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      loadTenant(tenant.id);
+    }
+  }, []);
 
   const totalItems = getTotalItems();
 
@@ -50,43 +54,44 @@ export function Navbar() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        backdropFilter: 'blur(12px)',
-        backgroundColor: colorScheme === 'dark' ? 'rgba(26, 27, 30, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(16px)',
+        backgroundColor: colorScheme === 'dark' ? 'rgba(26, 27, 30, 0.9)' : 'rgba(255, 255, 255, 0.9)',
         borderBottom: `1px solid ${colorScheme === 'dark' ? '#2C2E33' : '#E9ECEF'}`,
+        boxShadow: colorScheme === 'dark' ? '0 4px 20px rgba(0,0,0,0.3)' : '0 4px 20px rgba(0,0,0,0.03)',
       }}
     >
-      <Container size="xl" h={70}>
-        <Group justify="space-between" h="100%">
-          {/* Tenant Logo and Title */}
+      <Container size="xl" py={{ base: '0.85rem', sm: '1.15rem' }}>
+        <Group justify="space-between" align="center">
+          {/* Tenant Logo and Title (Rounded Logo & Removed Pill) */}
           <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <Group gap="xs">
+            <Group gap="sm" align="center">
               {tenant.logoUrl ? (
                 <Image
                   src={tenant.logoUrl}
                   alt={tenant.name}
-                  w={38}
-                  h={38}
-                  radius="md"
+                  w={46}
+                  h={46}
+                  radius="50%"
                   fit="cover"
+                  style={{
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid var(--mantine-color-violet-6)',
+                  }}
                   fallbackSrc="https://placehold.co/100x100?text=Logo"
                 />
               ) : (
-                <ActionIcon variant="light" size="lg" radius="md" color="violet">
-                  <IconBuildingStore size={22} />
+                <ActionIcon variant="light" size={46} radius="xl" color="violet">
+                  <IconBuildingStore size={24} />
                 </ActionIcon>
               )}
               <Box>
-                <Text fw={800} size="lg" lh={1.1} style={{ letterSpacing: '-0.5px' }}>
+                <Text fw={800} size="1.25rem" lh={1.15} style={{ letterSpacing: '-0.4px' }}>
                   {tenant.name}
                 </Text>
-                <Group gap={4}>
-                  <Badge size="xs" variant="outline" color="violet">
-                    {tenant.slug}
-                  </Badge>
-                  <Text size="xs" c="dimmed" hiddenFrom="xs">
-                    • E-Commerce
-                  </Text>
-                </Group>
+                <Text size="xs" c="dimmed">
+                  Tienda Oficial
+                </Text>
               </Box>
             </Group>
           </Link>
@@ -141,17 +146,19 @@ export function Navbar() {
               </Indicator>
             </Tooltip>
 
-            {/* User Menu */}
+            {/* User Account / Auth Button */}
             {user ? (
-              <Menu shadow="md" width={220} position="bottom-end">
+              <Menu shadow="md" width={220} radius="md" position="bottom-end">
                 <Menu.Target>
                   <Button
                     variant="subtle"
-                    radius="md"
+                    color="gray"
+                    radius="xl"
                     px="xs"
                     leftSection={
                       <Avatar
                         src={user.photoURL}
+                        alt={user.displayName || 'Usuario'}
                         size={28}
                         radius="xl"
                         color="violet"
@@ -179,24 +186,15 @@ export function Navbar() {
                     Mis Compras & Pedidos
                   </Menu.Item>
 
-                  <Menu.Item
-                    component={Link}
-                    href="/admin"
-                    leftSection={<IconShieldLock size={16} />}
-                  >
-                    Panel Administrador
-                  </Menu.Item>
-
-                  <Menu.Divider />
-
-                  {/* Toggle demo role for instant testing */}
-                  <Menu.Label>Modo de Prueba (Dev)</Menu.Label>
-                  <Menu.Item
-                    onClick={() => setDemoRole(isAdmin ? 'customer' : 'admin')}
-                    leftSection={<IconSettings size={16} />}
-                  >
-                    Cambiar a {isAdmin ? 'Cliente' : 'Admin'}
-                  </Menu.Item>
+                  {isAdmin && (
+                    <Menu.Item
+                      component={Link}
+                      href="/admin"
+                      leftSection={<IconShieldLock size={16} />}
+                    >
+                      Panel Administrador
+                    </Menu.Item>
+                  )}
 
                   <Menu.Divider />
 
@@ -225,6 +223,7 @@ export function Navbar() {
         </Group>
       </Container>
 
+      {/* Authentication Modal */}
       <AuthModal opened={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </Box>
   );
