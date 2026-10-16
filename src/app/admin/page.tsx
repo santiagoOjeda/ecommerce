@@ -26,6 +26,8 @@ import {
   Loader,
   ColorInput,
   Box,
+  FileButton,
+  Tooltip,
 } from '@mantine/core';
 import {
   IconPlus,
@@ -39,14 +41,27 @@ import {
   IconArrowLeft,
   IconPhoto,
   IconCheck,
+  IconUpload,
+  IconLink,
+  IconStar,
+  IconX,
 } from '@tabler/icons-react';
 import { useAuth } from '@/context/AuthContext';
 import { useTenantStore } from '@/store/tenantStore';
 import { productService } from '@/services/productService';
 import { orderService } from '@/services/orderService';
+import { storageService } from '@/services/storageService';
 import { Product, Order } from '@/types';
 import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
+
+const SAMPLE_PRODUCT_IMAGES = [
+  { label: 'Auriculares', url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Smartwatch', url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Zapatillas', url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Mochila', url: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&auto=format&fit=crop&q=80' },
+  { label: 'Cámara', url: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80' },
+];
 
 export default function AdminPage() {
   const { user, isAdmin, setDemoRole } = useAuth();
@@ -61,6 +76,8 @@ export default function AdminPage() {
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [imagesList, setImagesList] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   // Tenant Settings Form State
   const [tenantName, setTenantName] = useState(tenant.name);
@@ -124,14 +141,87 @@ export default function AdminPage() {
     setModalOpen(true);
   };
 
-  const handleAddImage = () => {
+  const handleAddImageUrl = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!imageUrlInput.trim()) return;
-    setImagesList([...imagesList, imageUrlInput.trim()]);
+    setImagesList((prev) => [...prev, imageUrlInput.trim()]);
     setImageUrlInput('');
   };
 
+  const handleFileUpload = async (file: File | null) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const result = await storageService.uploadProductImage(tenant.id, file);
+      setImagesList((prev) => [...prev, result.url]);
+      notifications.show({
+        title: 'Foto añadida',
+        message: result.isCloud
+          ? 'La imagen se subió exitosamente a Firebase Storage.'
+          : 'La imagen fue procesada y añadida al producto.',
+        color: 'green',
+      });
+    } catch (err) {
+      console.error('Error uploading product photo', err);
+      notifications.show({
+        title: 'Error al subir foto',
+        message: 'No se pudo procesar la imagen seleccionada.',
+        color: 'red',
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSetPrimaryImage = (index: number) => {
+    if (index === 0) return;
+    setImagesList((prev) => {
+      const copy = [...prev];
+      const [selected] = copy.splice(index, 1);
+      return [selected, ...copy];
+    });
+  };
+
+  const handleAddSampleImage = (url: string) => {
+    setImagesList((prev) => [...prev, url]);
+    notifications.show({
+      title: 'Foto de muestra añadida',
+      message: 'Se agregó la imagen al producto.',
+      color: 'teal',
+      autoClose: 2000,
+    });
+  };
+
   const handleRemoveImage = (index: number) => {
-    setImagesList(imagesList.filter((_, i) => i !== index));
+    setImagesList((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleLogoUpload = async (file: File | null) => {
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const result = await storageService.uploadTenantLogo(tenant.id, file);
+      setTenantLogo(result.url);
+      notifications.show({
+        title: 'Logo actualizado',
+        message: result.isCloud
+          ? 'El logo se subió a Firebase Storage.'
+          : 'El logo se procesó correctamente.',
+        color: 'green',
+      });
+    } catch (err) {
+      console.error('Error uploading logo', err);
+      notifications.show({
+        title: 'Error',
+        message: 'No se pudo subir el logo.',
+        color: 'red',
+      });
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
@@ -433,29 +523,52 @@ export default function AdminPage() {
                   onChange={(e) => setTenantSlug(e.target.value)}
                 />
 
-                <TextInput
-                  label="URL del Logo"
-                  description="Enlace directo a la imagen del logo"
-                  placeholder="https://..."
-                  value={tenantLogo}
-                  onChange={(e) => setTenantLogo(e.target.value)}
-                />
-
-                {tenantLogo && (
-                  <Box>
-                    <Text size="xs" fw={600} c="dimmed" mb={4}>
-                      Vista previa del Logo:
-                    </Text>
-                    <Image
-                      src={tenantLogo}
-                      w={80}
-                      h={80}
-                      radius="md"
-                      fit="cover"
-                      fallbackSrc="https://placehold.co/100x100?text=Error"
+                <Box>
+                  <Text size="sm" fw={500} mb={4}>
+                    Logo de la Tienda
+                  </Text>
+                  <Group gap="xs" align="flex-end" mb="xs">
+                    <TextInput
+                      style={{ flex: 1 }}
+                      placeholder="URL del logo (https://...) o sube un archivo"
+                      value={tenantLogo}
+                      onChange={(e) => setTenantLogo(e.target.value)}
                     />
-                  </Box>
-                )}
+                    <FileButton
+                      onChange={handleLogoUpload}
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    >
+                      {(props) => (
+                        <Button
+                          {...props}
+                          type="button"
+                          variant="light"
+                          color="violet"
+                          leftSection={<IconUpload size={16} />}
+                          loading={uploadingLogo}
+                        >
+                          Subir Archivo
+                        </Button>
+                      )}
+                    </FileButton>
+                  </Group>
+
+                  {tenantLogo && (
+                    <Box mt="xs">
+                      <Text size="xs" fw={600} c="dimmed" mb={4}>
+                        Vista previa del Logo:
+                      </Text>
+                      <Image
+                        src={tenantLogo}
+                        w={80}
+                        h={80}
+                        radius="md"
+                        fit="cover"
+                        fallbackSrc="https://placehold.co/100x100?text=Error"
+                      />
+                    </Box>
+                  )}
+                </Box>
 
                 <Textarea
                   label="Descripción del Negocio"
@@ -614,46 +727,183 @@ export default function AdminPage() {
 
               {/* Photos Management */}
               <Box>
-                <Text size="sm" fw={500} mb={4}>
-                  Fotografías del Producto
-                </Text>
-                <Group gap="xs" mb="xs">
-                  <TextInput
-                    placeholder="URL de la imagen (https://...)"
-                    style={{ flex: 1 }}
-                    value={imageUrlInput}
-                    onChange={(e) => setImageUrlInput(e.target.value)}
-                  />
-                  <Button variant="light" color="violet" onClick={handleAddImage}>
-                    Añadir Foto
-                  </Button>
+                <Group justify="space-between" align="center" mb={6}>
+                  <Text size="sm" fw={600}>
+                    Fotografías del Producto ({imagesList.length})
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    JPG, PNG, WEBP, GIF
+                  </Text>
                 </Group>
 
-                {imagesList.length > 0 && (
-                  <Group gap="xs" mt="xs">
-                    {imagesList.map((url, i) => (
-                      <Box
-                        key={i}
-                        style={{
-                          position: 'relative',
-                          border: '1px solid var(--mantine-color-default-border)',
-                          borderRadius: 8,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <Image src={url} w={64} h={64} fit="cover" alt="prev" />
-                        <ActionIcon
-                          size="xs"
-                          color="red"
+                {/* Upload & URL Input Controls */}
+                <Stack gap="xs" mb="sm">
+                  <Group gap="sm" wrap="wrap">
+                    <FileButton
+                      onChange={handleFileUpload}
+                      accept="image/png,image/jpeg,image/webp,image/avif,image/gif"
+                    >
+                      {(props) => (
+                        <Button
+                          {...props}
+                          type="button"
                           variant="filled"
-                          style={{ position: 'absolute', top: 2, right: 2 }}
-                          onClick={() => handleRemoveImage(i)}
+                          color="violet"
+                          leftSection={<IconUpload size={16} />}
+                          loading={uploadingImage}
                         >
-                          <IconTrash size={12} />
-                        </ActionIcon>
-                      </Box>
-                    ))}
+                          Subir Foto desde dispositivo
+                        </Button>
+                      )}
+                    </FileButton>
                   </Group>
+
+                  <Group gap="xs" align="flex-end">
+                    <TextInput
+                      placeholder="O pega una URL directa (https://...)"
+                      style={{ flex: 1 }}
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddImageUrl();
+                        }
+                      }}
+                      rightSection={
+                        imageUrlInput ? (
+                          <ActionIcon
+                            type="button"
+                            size="xs"
+                            variant="subtle"
+                            color="gray"
+                            onClick={() => setImageUrlInput('')}
+                          >
+                            <IconX size={12} />
+                          </ActionIcon>
+                        ) : undefined
+                      }
+                    />
+                    <Button
+                      type="button"
+                      variant="light"
+                      color="violet"
+                      onClick={handleAddImageUrl}
+                      leftSection={<IconLink size={16} />}
+                      disabled={!imageUrlInput.trim()}
+                    >
+                      Añadir URL
+                    </Button>
+                  </Group>
+
+                  {/* 1-Click Sample Photos */}
+                  <Box>
+                    <Text size="xs" c="dimmed" mb={4}>
+                      Fotos de muestra rápidas:
+                    </Text>
+                    <Group gap={6} wrap="wrap">
+                      {SAMPLE_PRODUCT_IMAGES.map((sample) => (
+                        <Button
+                          key={sample.label}
+                          type="button"
+                          variant="default"
+                          size="compact-xs"
+                          radius="xl"
+                          onClick={() => handleAddSampleImage(sample.url)}
+                        >
+                          + {sample.label}
+                        </Button>
+                      ))}
+                    </Group>
+                  </Box>
+                </Stack>
+
+                {/* Photos List / Gallery */}
+                {imagesList.length > 0 ? (
+                  <Box
+                    p="xs"
+                    style={{
+                      border: '1px solid var(--mantine-color-default-border)',
+                      borderRadius: 8,
+                      backgroundColor: 'var(--mantine-color-default-hover)',
+                    }}
+                  >
+                    <Text size="xs" c="dimmed" mb={8}>
+                      La primera foto es la portada del producto en el catálogo. Usa la estrella para cambiar la portada.
+                    </Text>
+                    <Group gap="sm" wrap="wrap">
+                      {imagesList.map((url, i) => (
+                        <Box
+                          key={i}
+                          style={{
+                            position: 'relative',
+                            width: 84,
+                            height: 84,
+                            borderRadius: 8,
+                            overflow: 'hidden',
+                            border:
+                              i === 0
+                                ? '2px solid var(--mantine-color-violet-6)'
+                                : '1px solid var(--mantine-color-default-border)',
+                            backgroundColor: '#fff',
+                          }}
+                        >
+                          <Image src={url} w={84} h={84} fit="cover" alt={`foto-${i}`} />
+
+                          {/* Primary indicator */}
+                          {i === 0 ? (
+                            <Badge
+                              size="xs"
+                              variant="filled"
+                              color="violet"
+                              style={{
+                                position: 'absolute',
+                                bottom: 4,
+                                left: 4,
+                                pointerEvents: 'none',
+                                fontSize: 9,
+                                height: 16,
+                                padding: '0 4px',
+                              }}
+                            >
+                              Portada
+                            </Badge>
+                          ) : (
+                            <Tooltip label="Definir como foto de portada" withArrow position="top">
+                              <ActionIcon
+                                type="button"
+                                size="xs"
+                                color="yellow"
+                                variant="filled"
+                                style={{ position: 'absolute', bottom: 4, left: 4 }}
+                                onClick={() => handleSetPrimaryImage(i)}
+                              >
+                                <IconStar size={12} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+
+                          {/* Remove button */}
+                          <Tooltip label="Eliminar foto" withArrow position="top">
+                            <ActionIcon
+                              type="button"
+                              size="xs"
+                              color="red"
+                              variant="filled"
+                              style={{ position: 'absolute', top: 4, right: 4 }}
+                              onClick={() => handleRemoveImage(i)}
+                            >
+                              <IconTrash size={12} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Box>
+                      ))}
+                    </Group>
+                  </Box>
+                ) : (
+                  <Alert color="gray" py="xs" icon={<IconPhoto size={16} />}>
+                    Añade al menos una foto para que se muestre en el catálogo y checkout.
+                  </Alert>
                 )}
               </Box>
 
@@ -666,7 +916,7 @@ export default function AdminPage() {
               />
 
               <Group justify="flex-end" mt="md">
-                <Button variant="subtle" onClick={() => setModalOpen(false)}>
+                <Button type="button" variant="subtle" onClick={() => setModalOpen(false)}>
                   Cancelar
                 </Button>
                 <Button type="submit" color="violet">
