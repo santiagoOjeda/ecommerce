@@ -106,6 +106,8 @@ export function CartDrawer() {
     setCheckoutUrl(null);
   };
 
+  const totalUnits = items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
   return (
     <Drawer
       opened={isCartOpen}
@@ -114,11 +116,35 @@ export function CartDrawer() {
         closeCart();
       }}
       title={
-        <Group gap="xs">
-          <Text fw={700} size="lg">Tu Carrito</Text>
-          <Badge color="violet" variant="light" size="sm">
-            {items.length} {items.length === 1 ? 'producto' : 'productos'}
-          </Badge>
+        <Group justify="space-between" align="center" style={{ width: '100%', paddingRight: 10 }}>
+          <Group gap="xs">
+            <Text fw={700} size="lg">Tu Carrito</Text>
+            <Badge color="violet" variant="light" size="sm">
+              {totalUnits} {totalUnits === 1 ? 'unidad' : 'unidades'}
+            </Badge>
+          </Group>
+          {items.length > 0 && (
+            <Button
+              type="button"
+              variant="subtle"
+              color="red"
+              size="compact-xs"
+              leftSection={<IconTrash size={12} />}
+              onClick={() => {
+                clearCart();
+                setPreferenceId(null);
+                setCheckoutUrl(null);
+                notifications.show({
+                  title: 'Carrito vaciado',
+                  message: 'Se han eliminado todos los productos del carrito.',
+                  color: 'gray',
+                  autoClose: 2000,
+                });
+              }}
+            >
+              Vaciar
+            </Button>
+          )}
         </Group>
       }
       position="right"

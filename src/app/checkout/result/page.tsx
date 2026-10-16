@@ -26,12 +26,14 @@ import {
 import { useTenantStore } from '@/store/tenantStore';
 import { orderService } from '@/services/orderService';
 import { useAuth } from '@/context/AuthContext';
+import { useCartStore } from '@/store/cartStore';
 import Link from 'next/link';
 
 function CheckoutResultContent() {
   const searchParams = useSearchParams();
   const { tenant } = useTenantStore();
   const { user } = useAuth();
+  const { clearCart } = useCartStore();
 
   const status = searchParams.get('status') || 'approved';
   const paramOrderId = searchParams.get('orderId');
@@ -41,6 +43,11 @@ function CheckoutResultContent() {
   const [, setSaved] = useState(false);
 
   useEffect(() => {
+    // Automatically reset/clear shopping cart on successful checkout
+    if (status === 'approved') {
+      clearCart();
+    }
+
     // Save order in history
     async function recordOrder() {
       try {

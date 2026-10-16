@@ -34,18 +34,23 @@ import { AuthModal } from '../auth/AuthModal';
 
 export function Navbar() {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme();
-  const { toggleCart, getTotalItems } = useCartStore();
+  const items = useCartStore((state) => state.items);
+  const toggleCart = useCartStore((state) => state.toggleCart);
   const { tenant, loadTenant } = useTenantStore();
   const { user, isAdmin, logout } = useAuth();
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     if (tenant?.id) {
       loadTenant(tenant.id);
     }
   }, []);
 
-  const totalItems = getTotalItems();
+  const totalItems = mounted
+    ? items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)
+    : 0;
 
   return (
     <Box

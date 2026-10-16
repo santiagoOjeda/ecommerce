@@ -73,15 +73,31 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () => {
+        set({ items: [] });
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(
+              'ecommerce-cart-storage',
+              JSON.stringify({ state: { items: [] }, version: 0 })
+            );
+          } catch (e) {
+            console.warn('Error clearing cart storage', e);
+          }
+        }
+      },
 
       getTotalItems: () => {
-        return get().items.reduce((total, item) => total + item.quantity, 0);
+        return get().items.reduce(
+          (total, item) => total + (Number(item.quantity) || 0),
+          0
+        );
       },
 
       getTotalPrice: () => {
         return get().items.reduce(
-          (total, item) => total + item.product.price * item.quantity,
+          (total, item) =>
+            total + (Number(item.product.price) || 0) * (Number(item.quantity) || 0),
           0
         );
       },
