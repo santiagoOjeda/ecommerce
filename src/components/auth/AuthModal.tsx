@@ -31,6 +31,26 @@ export function AuthModal({ opened, onClose }: AuthModalProps) {
 
   const { loginWithEmail, registerWithEmail, loginWithGoogle } = useAuth();
 
+  function getFriendlyErrorMessage(err: any): string {
+    const code = err?.code || '';
+    if (code === 'auth/configuration-not-found' || code.includes('configuration-not-found')) {
+      return 'Authentication aún no está activado en tu Firebase Console. Ve a Firebase Console > Build > Authentication, haz clic en "Comenzar" y activa "Correo electrónico/contraseña".';
+    }
+    if (code === 'auth/operation-not-allowed') {
+      return 'El método de acceso seleccionado no está habilitado en Firebase Console > Authentication > Sign-in method.';
+    }
+    if (code === 'auth/email-already-in-use') {
+      return 'Este correo electrónico ya está registrado. Prueba iniciando sesión.';
+    }
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+      return 'Correo o contraseña incorrectos.';
+    }
+    if (code === 'auth/weak-password') {
+      return 'La contraseña debe tener un mínimo de 6 caracteres.';
+    }
+    return err?.message || 'Error en la autenticación. Por favor verifica tus datos.';
+  }
+
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -54,7 +74,8 @@ export function AuthModal({ opened, onClose }: AuthModalProps) {
       }
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Error en la autenticación. Por favor verifica tus datos.');
+      console.error('Auth error:', err);
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -72,7 +93,8 @@ export function AuthModal({ opened, onClose }: AuthModalProps) {
       });
       onClose();
     } catch (err: any) {
-      setError(err?.message || 'Error al iniciar sesión con Google.');
+      console.error('Google auth error:', err);
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }
