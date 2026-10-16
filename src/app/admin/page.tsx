@@ -327,7 +327,7 @@ export default function AdminPage() {
               </Group>
             ) : products.length === 0 ? (
               <Alert color="gray" title="Catálogo vacío">
-                No hay productos cargados aún. Haz clic en "Nuevo Producto" para añadir uno.
+                No hay productos cargados aún. Haz clic en &quot;Nuevo Producto&quot; para añadir uno.
               </Alert>
             ) : (
               <Table.ScrollContainer minWidth={600}>

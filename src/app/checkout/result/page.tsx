@@ -34,10 +34,11 @@ function CheckoutResultContent() {
   const { user } = useAuth();
 
   const status = searchParams.get('status') || 'approved';
-  const orderId = searchParams.get('orderId') || `ord-${Date.now()}`;
+  const paramOrderId = searchParams.get('orderId');
+  const [orderId] = useState(() => paramOrderId || `ord-${Math.random().toString(36).substring(2, 9)}`);
   const isSimulated = searchParams.get('simulated') === 'true';
 
-  const [saved, setSaved] = useState(false);
+  const [, setSaved] = useState(false);
 
   useEffect(() => {
     // Save order in history
