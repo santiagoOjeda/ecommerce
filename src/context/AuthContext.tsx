@@ -9,7 +9,8 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   signInWithPopup, 
-  GoogleAuthProvider 
+  GoogleAuthProvider,
+  updateProfile,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -37,28 +38,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isFirebaseConfigured && auth) {
       const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
         if (fbUser) {
-          // Fetch role from Firestore
-          let role: UserRole = 'customer';
-          try {
-            const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-            if (userDoc.exists()) {
-              role = userDoc.data().role || 'customer';
-            }
-          } catch (err) {
-            console.warn('Could not read user profile role', err);
-          }
-
-          setUser({
+          // 1. Immediately establish the authenticated user so the UI updates without delay
+          const currentUser: UserProfile = {
             uid: fbUser.uid,
             email: fbUser.email,
             displayName: fbUser.displayName || fbUser.email?.split('@')[0] || 'Usuario',
             photoURL: fbUser.photoURL,
-            role,
-          });
+            role: 'customer',
+          };
+          setUser(currentUser);
+          setLoading(false);
+
+          // 2. Safely query Firestore role in the background with timeout (never blocking UI if Firestore DB is not yet created)
+          if (db) {
+            try {
+              const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Firestore timeout')), 2500)
+              );
+              const fetchPromise = getDoc(doc(db, 'users', fbUser.uid));
+              const userDoc: any = await Promise.race([fetchPromise, timeoutPromise]);
+              if (userDoc?.exists?.()) {
+                const data = userDoc.data();
+                setUser((prev) =>
+                  prev ? { ...prev, role: data.role || prev.role, displayName: data.displayName || prev.displayName } : null
+                );
+              }
+            } catch (err) {
+              console.warn('Could not read user profile role from Firestore:', err);
+            }
+          }
         } else {
           setUser(null);
+          setLoading(false);
         }
-        setLoading(false);
       });
       return () => unsubscribe();
     } else {
@@ -68,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           setUser(JSON.parse(saved));
         } else {
-          // Default mock user with customer role
           const defaultCustomer: UserProfile = {
             uid: 'demo-customer-1',
             email: 'cliente@ejemplo.com',
@@ -87,7 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithEmail = async (email: string, pass: string) => {
     if (isFirebaseConfigured && auth) {
-      await signInWithEmailAndPassword(auth, email, pass);
+      const cred = await signInWithEmailAndPassword(auth, email, pass);
+      // Immediately set user in state
+      setUser({
+        uid: cred.user.uid,
+        email: cred.user.email,
+        displayName: cred.user.displayName || email.split('@')[0],
+        photoURL: cred.user.photoURL,
+        role: 'customer',
+      });
     } else {
       const isMockAdmin = email.toLowerCase().includes('admin');
       const mockUser: UserProfile = {
@@ -104,16 +123,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const registerWithEmail = async (email: string, pass: string, name: string) => {
     if (isFirebaseConfigured && auth) {
       const cred = await createUserWithEmailAndPassword(auth, email, pass);
+
+      // Set display name in Firebase Auth profile
+      try {
+        await updateProfile(cred.user, { displayName: name });
+      } catch (err) {
+        console.warn('Could not update Firebase Auth profile display name', err);
+      }
+
       const profile: UserProfile = {
         uid: cred.user.uid,
         email: cred.user.email,
         displayName: name,
         role: 'customer',
       };
-      if (db) {
-        await setDoc(doc(db, 'users', cred.user.uid), profile);
-      }
+
+      // Set user immediately
       setUser(profile);
+
+      // Write to Firestore asynchronously in background (won't crash auth if Firestore is still initializing)
+      if (db) {
+        try {
+          const cleanProfile = Object.fromEntries(
+            Object.entries(profile).filter(([_, v]) => v !== undefined)
+          );
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Firestore timeout')), 2500)
+          );
+          await Promise.race([
+            setDoc(doc(db, 'users', cred.user.uid), cleanProfile),
+            timeoutPromise
+          ]);
+        } catch (err) {
+          console.warn('Could not write user profile to Firestore (database may be pending creation):', err);
+        }
+      }
     } else {
       const mockUser: UserProfile = {
         uid: `user-${Date.now()}`,
@@ -129,7 +173,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     if (isFirebaseConfigured && auth) {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const cred = await signInWithPopup(auth, provider);
+      setUser({
+        uid: cred.user.uid,
+        email: cred.user.email,
+        displayName: cred.user.displayName || cred.user.email?.split('@')[0] || 'Usuario',
+        photoURL: cred.user.photoURL,
+        role: 'customer',
+      });
     } else {
       const mockUser: UserProfile = {
         uid: `google-${Date.now()}`,
