@@ -110,7 +110,10 @@ export const productService = {
     if (isFirebaseConfigured && db) {
       try {
         const productRef = doc(db, 'tenants', tenantId, 'products', productId);
-        await setDoc(productRef, fullProduct, { merge: true });
+        const cleanProduct = Object.fromEntries(
+          Object.entries(fullProduct).filter(([_, v]) => v !== undefined)
+        );
+        await setDoc(productRef, cleanProduct, { merge: true });
       } catch (err) {
         console.error('Firestore save product error:', err);
       }

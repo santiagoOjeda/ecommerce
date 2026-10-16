@@ -74,7 +74,11 @@ export const orderService = {
     if (isFirebaseConfigured && db) {
       try {
         const orderRef = doc(db, 'tenants', order.tenantId, 'orders', orderId);
-        await setDoc(orderRef, fullOrder);
+        // Strip undefined fields for Firestore
+        const cleanOrder = Object.fromEntries(
+          Object.entries(fullOrder).filter(([_, v]) => v !== undefined)
+        );
+        await setDoc(orderRef, cleanOrder);
       } catch (err) {
         console.error('Firestore create order error:', err);
       }
