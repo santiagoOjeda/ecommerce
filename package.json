@@ -13,6 +13,7 @@
     "@mantine/form": "^9.7.2",
     "@mantine/hooks": "^9.7.2",
     "@mantine/notifications": "^9.7.2",
+    "@mercadopago/sdk-react": "^1.0.7",
     "@tabler/icons-react": "^3.49.0",
     "firebase": "^13.0.0",
     "mercadopago": "^3.6.1",

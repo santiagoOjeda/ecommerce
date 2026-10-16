@@ -24,11 +24,13 @@ import {
   IconCreditCard,
   IconAlertCircle,
   IconShieldCheck,
+  IconArrowRight,
 } from '@tabler/icons-react';
 import { useCartStore } from '@/store/cartStore';
 import { useTenantStore } from '@/store/tenantStore';
 import { useAuth } from '@/context/AuthContext';
 import { notifications } from '@mantine/notifications';
+import { MercadoPagoWallet } from '@/components/checkout/MercadoPagoWallet';
 
 export function CartDrawer() {
   const { isCartOpen, closeCart, items, updateQuantity, removeItem, getTotalPrice, clearCart } =
@@ -37,10 +39,12 @@ export function CartDrawer() {
   const { user } = useAuth();
   const [checkingOut, setCheckingOut] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [preferenceId, setPreferenceId] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const totalPrice = getTotalPrice();
 
-  const handleCheckout = async () => {
+  const handlePrepareCheckout = async () => {
     if (items.length === 0) return;
     setErrorMsg(null);
     setCheckingOut(true);
@@ -69,18 +73,25 @@ export function CartDrawer() {
         throw new Error(data.error || 'No se pudo generar la preferencia de pago');
       }
 
-      notifications.show({
-        title: 'Redireccionando a Mercado Pago',
-        message: 'Serás transferido de forma segura para completar tu pago...',
-        color: 'blue',
-      });
-
-      // Clear cart and redirect
-      clearCart();
-      closeCart();
-
-      // Navigate to Mercado Pago Checkout
-      window.location.href = data.initPoint;
+      if (data.mode === 'mercadopago' && data.preferenceId) {
+        setPreferenceId(data.preferenceId);
+        setCheckoutUrl(data.initPoint);
+        notifications.show({
+          title: 'Pasarela lista',
+          message: 'Puedes completar tu pago con el botón de Mercado Pago.',
+          color: 'blue',
+        });
+      } else {
+        // Simulation mode
+        notifications.show({
+          title: 'Redireccionando a Mercado Pago',
+          message: 'Transfiriendo a la pasarela de prueba...',
+          color: 'blue',
+        });
+        clearCart();
+        closeCart();
+        window.location.href = data.initPoint;
+      }
     } catch (err: any) {
       console.error('Checkout error:', err);
       setErrorMsg(err?.message || 'Ocurrió un error al iniciar el pago con Mercado Pago.');
@@ -89,10 +100,19 @@ export function CartDrawer() {
     }
   };
 
+  const handleItemChanged = () => {
+    // Reset generated preference when cart changes
+    setPreferenceId(null);
+    setCheckoutUrl(null);
+  };
+
   return (
     <Drawer
       opened={isCartOpen}
-      onClose={closeCart}
+      onClose={() => {
+        setPreferenceId(null);
+        closeCart();
+      }}
       title={
         <Group gap="xs">
           <Title order={4}>Tu Carrito</Title>
@@ -170,7 +190,10 @@ export function CartDrawer() {
                       variant="subtle"
                       color="red"
                       size="sm"
-                      onClick={() => removeItem(product.id)}
+                      onClick={() => {
+                        removeItem(product.id);
+                        handleItemChanged();
+                      }}
                       aria-label="Eliminar producto"
                     >
                       <IconTrash size={16} />
@@ -184,7 +207,10 @@ export function CartDrawer() {
                         size="sm"
                         variant="default"
                         radius="sm"
-                        onClick={() => updateQuantity(product.id, quantity - 1)}
+                        onClick={() => {
+                          updateQuantity(product.id, quantity - 1);
+                          handleItemChanged();
+                        }}
                       >
                         <IconMinus size={12} />
                       </ActionIcon>
@@ -196,7 +222,10 @@ export function CartDrawer() {
                         variant="default"
                         radius="sm"
                         disabled={quantity >= product.stock}
-                        onClick={() => updateQuantity(product.id, quantity + 1)}
+                        onClick={() => {
+                          updateQuantity(product.id, quantity + 1);
+                          handleItemChanged();
+                        }}
                       >
                         <IconPlus size={12} />
                       </ActionIcon>
@@ -228,27 +257,51 @@ export function CartDrawer() {
 
             <Group gap={6} mb="md" c="dimmed">
               <IconShieldCheck size={16} color="green" />
-              <Text size="xs">Pago 100% protegido por Mercado Pago</Text>
+              <Text size="xs">Pago 100% protegido con Mercado Pago SDK</Text>
             </Group>
 
-            <Button
-              fullWidth
-              size="md"
-              radius="md"
-              color="blue"
-              leftSection={<IconCreditCard size={20} />}
-              loading={checkingOut}
-              onClick={handleCheckout}
-              styles={{
-                root: {
-                  backgroundColor: '#009ee3', // Mercado Pago Blue brand color
-                  transition: 'transform 0.15s ease',
-                  '&:hover': { backgroundColor: '#0083bd' },
-                },
-              }}
-            >
-              Pagar con Mercado Pago
-            </Button>
+            {/* Official Mercado Pago Wallet Brick or Action Button */}
+            {preferenceId ? (
+              <Stack gap="xs">
+                <MercadoPagoWallet
+                  preferenceId={preferenceId}
+                />
+                {checkoutUrl && (
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    color="gray"
+                    rightSection={<IconArrowRight size={14} />}
+                    onClick={() => {
+                      clearCart();
+                      closeCart();
+                      window.location.href = checkoutUrl;
+                    }}
+                  >
+                    Abrir en ventana completa de Mercado Pago
+                  </Button>
+                )}
+              </Stack>
+            ) : (
+              <Button
+                fullWidth
+                size="md"
+                radius="md"
+                color="blue"
+                leftSection={<IconCreditCard size={20} />}
+                loading={checkingOut}
+                onClick={handlePrepareCheckout}
+                styles={{
+                  root: {
+                    backgroundColor: '#009ee3', // Mercado Pago Blue brand color
+                    transition: 'transform 0.15s ease',
+                    '&:hover': { backgroundColor: '#0083bd' },
+                  },
+                }}
+              >
+                Pagar con Mercado Pago
+              </Button>
+            )}
           </Box>
         </Stack>
       )}
