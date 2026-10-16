@@ -15,6 +15,7 @@ import {
   Tooltip,
   useMantineColorScheme,
   Image,
+  Indicator,
 } from '@mantine/core';
 import {
   IconShoppingCart,
@@ -105,33 +106,40 @@ export function Navbar() {
               </ActionIcon>
             </Tooltip>
 
-            {/* Cart Button */}
-            <ActionIcon
-              variant="light"
-              color="violet"
-              size="lg"
-              radius="md"
-              onClick={toggleCart}
-              style={{ position: 'relative' }}
-              aria-label="Carrito de compras"
-            >
-              <IconShoppingCart size={22} />
-              {totalItems > 0 && (
-                <Badge
-                  size="xs"
-                  circle
-                  color="red"
+            {/* Cart Button with Indicator */}
+            <Tooltip label="Carrito de compras">
+              <Indicator
+                label={totalItems}
+                size={20}
+                offset={4}
+                position="top-end"
+                color="violet"
+                disabled={totalItems === 0}
+                withBorder
+                styles={{
+                  indicator: {
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    boxShadow: '0 2px 6px rgba(121, 84, 196, 0.4)',
+                    padding: '0 4px',
+                  },
+                }}
+              >
+                <ActionIcon
+                  variant="light"
+                  color="violet"
+                  size="lg"
+                  radius="md"
+                  onClick={toggleCart}
+                  aria-label="Carrito de compras"
                   style={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    transition: 'transform 0.15s ease',
                   }}
                 >
-                  {totalItems}
-                </Badge>
-              )}
-            </ActionIcon>
+                  <IconShoppingCart size={22} />
+                </ActionIcon>
+              </Indicator>
+            </Tooltip>
 
             {/* User Menu */}
             {user ? (
