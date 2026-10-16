@@ -23,9 +23,6 @@ import {
   IconSearch,
   IconFilter,
   IconShoppingCart,
-  IconSparkles,
-  IconShieldCheck,
-  IconTruckDelivery,
 } from '@tabler/icons-react';
 import { ProductCard } from '@/components/products/ProductCard';
 import { ProductDetailModal } from '@/components/products/ProductDetailModal';
@@ -80,66 +77,17 @@ export default function HomePage() {
 
   return (
     <Box pb="4rem">
-      {/* Hero Section */}
-      <Box
-        py={{ base: '2.5rem', md: '4rem' }}
-        px="md"
-        style={{
-          background: 'linear-gradient(135deg, rgba(121, 84, 196, 0.08) 0%, rgba(93, 63, 153, 0.15) 100%)',
-          borderBottom: '1px solid var(--mantine-color-default-border)',
-        }}
-      >
-        <Container size="xl">
-          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ alignItems: 'center' }}>
-            <Box>
-              <Badge
-                size="md"
-                variant="gradient"
-                gradient={{ from: 'violet', to: 'indigo', deg: 90 }}
-                mb="sm"
-                leftSection={<IconSparkles size={14} />}
-              >
-                Tienda Oficial Verificada
-              </Badge>
-              <Title
-                order={1}
-                size="clamp(2rem, 5vw, 3rem)"
-                lh={1.15}
-                fw={800}
-                style={{ letterSpacing: '-0.5px' }}
-                mb="md"
-              >
-                {tenant.name}
-              </Title>
-              <Text size="lg" c="dimmed" mb="lg" lh={1.6}>
-                {tenant.description || 'Descubre nuestra selección exclusiva de productos con stock inmediato y envíos a todo el país.'}
-              </Text>
-
-              <Group gap="md">
-                <Group gap={6} c="dimmed">
-                  <IconTruckDelivery size={18} color="#7954c4" />
-                  <Text size="sm">Envíos rápidos</Text>
-                </Group>
-                <Group gap={6} c="dimmed">
-                  <IconShieldCheck size={18} color="#22c55e" />
-                  <Text size="sm">Mercado Pago Protegido</Text>
-                </Group>
-              </Group>
-            </Box>
-
-            {/* Animated Banner Slider */}
-            <Box>
-              <HeroSlider
-                customBannerUrl={tenant.bannerUrl}
-                tenantName={tenant.name}
-              />
-            </Box>
-          </SimpleGrid>
-        </Container>
+      {/* 100% Full-Width Animated Hero Slider */}
+      <Box w="100%">
+        <HeroSlider
+          customBannerUrl={tenant.bannerUrl}
+          tenantName={tenant.name}
+          tenantDescription={tenant.description}
+        />
       </Box>
 
       {/* Catalog & Filters */}
-      <Container size="xl" pt="2rem">
+      <Container size="xl" pt="2rem" id="catalogo">
         <Stack gap="lg">
           {/* Controls bar: Search, Sort and Category pills */}
           <Paper p="md" radius="lg" withBorder>
