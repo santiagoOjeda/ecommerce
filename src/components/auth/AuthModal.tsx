@@ -36,6 +36,9 @@ export function AuthModal({ opened, onClose }: AuthModalProps) {
     if (code === 'auth/configuration-not-found' || code.includes('configuration-not-found')) {
       return 'Authentication aún no está activado en tu Firebase Console. Ve a Firebase Console > Build > Authentication, haz clic en "Comenzar" y activa "Correo electrónico/contraseña".';
     }
+    if (code === 'auth/unauthorized-domain') {
+      return 'Este dominio de Vercel no está autorizado en Firebase. Agrégalo en Firebase Console > Authentication > Settings > Authorized domains.';
+    }
     if (code === 'auth/operation-not-allowed') {
       return 'El método de acceso seleccionado no está habilitado en Firebase Console > Authentication > Sign-in method.';
     }
