@@ -548,9 +548,9 @@ export default function AdminPage() {
         opened={modalOpen}
         onClose={() => setModalOpen(false)}
         title={
-          <Title order={4}>
+          <Text fw={700} size="lg">
             {editingProduct?.id ? 'Editar Producto' : 'Crear Nuevo Producto'}
-          </Title>
+          </Text>
         }
         size="lg"
         radius="lg"

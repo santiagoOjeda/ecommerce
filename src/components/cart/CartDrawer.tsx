@@ -115,7 +115,7 @@ export function CartDrawer() {
       }}
       title={
         <Group gap="xs">
-          <Title order={4}>Tu Carrito</Title>
+          <Text fw={700} size="lg">Tu Carrito</Text>
           <Badge color="violet" variant="light" size="sm">
             {items.length} {items.length === 1 ? 'producto' : 'productos'}
           </Badge>

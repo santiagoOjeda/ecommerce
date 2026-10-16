@@ -42,31 +42,42 @@ export async function POST(req: NextRequest) {
     // If Mercado Pago is properly configured with real credentials
     if (isMercadoPagoConfigured) {
       try {
-        const preference = await preferenceClient.create({
-          body: {
-            items: items.map((item) => ({
-              id: item.id,
-              title: item.title,
-              quantity: item.quantity,
-              unit_price: item.price,
-              currency_id: 'ARS',
-              picture_url: item.image,
-            })),
-            payer: {
-              email: customerEmail,
-              name: customerName,
-            },
-            back_urls: {
-              success: `${baseUrl}/checkout/result?status=approved&orderId=${orderId}&tenant=${tenantId}`,
-              failure: `${baseUrl}/checkout/result?status=rejected&orderId=${orderId}&tenant=${tenantId}`,
-              pending: `${baseUrl}/checkout/result?status=pending&orderId=${orderId}&tenant=${tenantId}`,
-            },
-            auto_return: 'approved',
-            external_reference: orderId,
-            notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-            statement_descriptor: 'TIENDA ECOMMERCE',
+        const isHttps = baseUrl.startsWith('https://');
+        const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1');
+
+        const preferenceBody: any = {
+          items: items.map((item) => ({
+            id: item.id,
+            title: item.title,
+            quantity: item.quantity,
+            unit_price: item.price,
+            currency_id: 'ARS',
+            picture_url: item.image,
+          })),
+          payer: {
+            email: customerEmail,
+            name: customerName,
           },
-        });
+          back_urls: {
+            success: `${baseUrl}/checkout/result?status=approved&orderId=${orderId}&tenant=${tenantId}`,
+            failure: `${baseUrl}/checkout/result?status=rejected&orderId=${orderId}&tenant=${tenantId}`,
+            pending: `${baseUrl}/checkout/result?status=pending&orderId=${orderId}&tenant=${tenantId}`,
+          },
+          external_reference: orderId,
+          statement_descriptor: 'TIENDA ECOMMERCE',
+        };
+
+        // Mercado Pago only permits auto_return with HTTPS URLs
+        if (isHttps) {
+          preferenceBody.auto_return = 'approved';
+        }
+
+        // Notification URL must be publicly accessible (not localhost)
+        if (!isLocalhost && isHttps) {
+          preferenceBody.notification_url = `${baseUrl}/api/webhooks/mercadopago`;
+        }
+
+        const preference = await preferenceClient.create({ body: preferenceBody });
 
         return NextResponse.json({
           success: true,
