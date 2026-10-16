@@ -145,5 +145,23 @@ export const productService = {
     const local = getLocalCache();
     const filtered = local.filter(p => p.id !== id);
     saveLocalCache(filtered);
+  },
+
+  async seedInitialProductsToFirestore(tenantId: string): Promise<number> {
+    if (!isFirebaseConfigured || !db) return 0;
+    let count = 0;
+    for (const prod of INITIAL_PRODUCTS) {
+      try {
+        const productRef = doc(db, 'tenants', tenantId, 'products', prod.id);
+        const clean = Object.fromEntries(
+          Object.entries(prod).filter(([_, v]) => v !== undefined)
+        );
+        await setDoc(productRef, clean, { merge: true });
+        count++;
+      } catch (err) {
+        console.error('Error seeding product to Firestore:', prod.id, err);
+      }
+    }
+    return count;
   }
 };
